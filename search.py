@@ -32,6 +32,7 @@ class Problem(object):
         """The constructor specifies the initial state, and possibly a goal
         state, if there is a unique goal.  Your subclass's constructor can add
         other arguments."""
+        # TODO: Set the initial state with the pirates initial location
         self.initial = initial
         self.goal = goal
 
