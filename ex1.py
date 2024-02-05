@@ -35,35 +35,34 @@ class OnePieceProblem(search.Problem):
         self.location_matrix = np.array(size=initial_map.shape)
         self.len_rows = self.location_matrix.shape[0]
         self.len_cols = self.location_matrix.shape[1]
-        self.treasure_islands_idx = initial['treasures'].values()
+        self.num_of_treasures = len(initial['treasures'])
+
         for i in range(self.len_rows):
             for j in range(self.len_cols):
                 self.location_matrix[i][j] = list()
+
                 if initial_map[i][j] == 'B':
                     self.base = (i,j)
                     self.location_matrix[i][j] = 'b'  # base; can deposit treasure here
-                if i > 0 and initial_map[i-1][j] != 'I':
+
+                if self.is_valid_location((i-1, j)):
                     self.location_matrix[i][j].append('u')  # up
-                if i < len_rows-1 and initial_map[i+1][j] != 'I':
+                if self.is_valid_location((i+1, j)):
                     self.location_matrix[i][j].append('d')  # down
-                if j > 0 and initial_map[i][j-1] != 'I':
+                if self.is_valid_location((i, j-1)):
                     self.location_matrix[i][j].append('l')  # left
-                if j < len_cols-1 and initial_map[i][j+1] != 'I':
+                if self.is_valid_location((i, j+1)):
                     self.location_matrix[i][j].append('r')  # right
 
         for treasure, location in initial['treasures'].items():
             i = location[0]
             j = location[1]
-            if i > 0 and self.location_matrix[i-1][j] != 'I':
-                self.location_matrix[i-1][j].append(('t', treasure.split('_')[1]))
-            if i < len_rows-1 and initial_map[i+1][j] != 'I':
-                self.location_matrix[i+1][j].append(('t', treasure.split('_')[1]))
-            if j > 0 and self.location_matrix[i][j-1] != 'I':
-                self.location_matrix[i][j-1].append(('t', treasure.split('_')[1]))
-            if j < len_cols-1 and initial_map[i][j+1] != 'I':
-                self.location_matrix[i][j+1].append(('t', treasure.split('_')[1]))      
-        self.treasure_count = 0
-
+            for b in [-1, 1]:
+                if self.is_valid_location((i + b, j)):
+                    self.location_matrix[i + b][j].append(('t', treasure.split('_')[1]))
+                if self.is_valid_location((i, j + b)):
+                    self.location_matrix[i][j + b].append(('t', treasure.split('_')[1]))
+                 
         self.marine_track = list()
         self.marine_location_idx = list()
         self.direction = list()
@@ -73,6 +72,10 @@ class OnePieceProblem(search.Problem):
             self.direction.append('n')  # Direction of the marine w.r.t its track: n = next item in list, p = previous item in list
 
         search.Problem.__init__(self, State(initial['pirate_ships'], initial['treasures']))
+
+    def is_valid_location(self, location):
+        x, y = location
+        return (0 <= x < self.len_rows) and (0 <= y < self.len_cols) and (self.location_matrix[x][y] != 'I')
 
 
     def actions(self, state):
@@ -156,15 +159,11 @@ class OnePieceProblem(search.Problem):
         """ This is the heuristic. It gets a node (not a state,
         state can be accessed via node.state)
         and returns a goal distance estimate"""
-        h1() , h2()
+        self.h1(node) , self.h2(node)  # Find balance between the two heuristics
         return 0
     
     def h_1(self, node):
         return sum(1 for t in node.state.treasures_locations if t == 'I') / len(node.state.pirate_locations)
-
-    def is_valid_location(self, location):
-        x, y = location
-        return (0 <= x < self.len_rows) and (0 <= y < self.len_cols) and (self.location_matrix[x][y] != 'I')
 
 
     def calculate_distances_from_treasure(self, num_pirates):
@@ -174,10 +173,10 @@ class OnePieceProblem(search.Problem):
         while queue:
             current = queue.pop(0)
             opened.append(current[0])
-            for t_num in range(len(self.treasure_islands_idx)):
+            for t_num in range(len(self.num_of_treasures)):
                 if ('t', t_num+1) in self.location_matrix[current[0][0]][current[0][1]]:
                     normalized_distances[t_num+1] = current[1]/num_pirates
-            if len(normalized_distances.keys()) == len(self.treasure_islands_idx):
+            if len(normalized_distances.keys()) == len(self.num_of_treasures):
                 return normalized_distances
             for i in [-1,1]:
                 potential_child_location = (current[0][0] + i, current[0][1])
@@ -187,7 +186,7 @@ class OnePieceProblem(search.Problem):
                 if self.is_valid_location(potential_child_location) and (potential_child_location not in opened):
                     queue.append((potential_child_location, current[1] + 1))
         
-        for t_num in range(len(self.treasure_islands_idx)):
+        for t_num in range(len(self.num_of_treasures)):
             if t_num+1 not in normalized_distances.keys():
                 normalized_distances[t_num+1] = float('inf')
         return normalized_distances
