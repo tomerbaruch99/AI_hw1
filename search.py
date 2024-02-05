@@ -15,6 +15,7 @@ import math
 import random
 import sys
 import bisect
+import ex1
 
 infinity = float('inf')
 
@@ -32,7 +33,7 @@ class Problem(object):
         """The constructor specifies the initial state, and possibly a goal
         state, if there is a unique goal.  Your subclass's constructor can add
         other arguments."""
-        # TODO: Set the initial state with the pirates initial location
+        # The initial state is an object of State class, containing the pirates and treasures' initial location.
         self.initial = initial
         self.goal = goal
 
@@ -150,6 +151,18 @@ def astar_search(problem, h=None):
     # Memoize this function for better performance
     f = memoize(lambda n: n.path_cost + h(n), 'f')
 
-    # TODO: Implement the rest of the A* search algorithm
-
+    queue = PriorityQueue(min, f)
+    queue.append(Node(problem.state))
+    closed = set()  # a list of nodes
+    distance = dict()  # keys: nodes, values: distances of each node from the root
+    while queue:
+        node = queue.pop()
+        if (node.state not in closed) or g(node) < distance[node]:
+            closed.add(node.state)
+            distance[node] = g(node)
+            if problem.goal_test(node.state):
+                return node.solution
+            for child in node.expand(problem):
+                if h(child) < infinity:
+                    queue.append(child)
     return None
