@@ -15,7 +15,7 @@ import math
 import random
 import sys
 import bisect
-import ex1
+# import ex1
 
 infinity = float('inf')
 
@@ -152,17 +152,13 @@ def astar_search(problem, h=None):
     f = memoize(lambda n: n.path_cost + h(n), 'f')
 
     queue = PriorityQueue(min, f)
-    queue.append(Node(problem.state))
-    closed = set()  # a list of nodes
-    distance = dict()  # keys: nodes, values: distances of each node from the root
+    queue.append(Node(problem.initial))
+    closed = dict()  # A dictionary of states and booliean values, to check if a state is in the closed list or not.
     while queue:
         node = queue.pop()
-        if (node.state not in closed) or g(node) < distance[node]:
-            closed.add(node.state)
-            distance[node] = g(node)
-            if problem.goal_test(node.state):
-                return node.solution
-            for child in node.expand(problem):
-                if h(child) < infinity:
-                    queue.append(child)
+        if problem.goal_test(node.state):
+            return node
+        if node.state not in closed:
+            closed[node.state] = True
+            queue.extend(node.expand(problem))
     return None
