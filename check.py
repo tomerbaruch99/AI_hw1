@@ -115,7 +115,7 @@ def main():
                     ['S', 'S', 'S', 'S', 'S'],
                     ['B', 'S', 'S', 'I', 'S']],
             'pirate_ships': {'pirate_ship_1': (3, 0)},
-            'treasures': {'treasure_1': (1, 1), 'treasure_2': (3, 3)},
+            'treasures': {'treasure_1':     (1, 1), 'treasure_2': (3, 3)},
             'marine_ships': {'marine_1': [(2, 3), (2, 4)], 'marine_2': [(0, 1), (0, 0)], 'marine_3': [(0, 0), (0, 1)],
                              'marine_4': [(2, 4), (2, 3)]},
         },
