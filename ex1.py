@@ -65,6 +65,11 @@ class OnePieceProblem(search.Problem):
 
         len_rows = len(initial_map)
         len_cols = len(initial_map[0])
+
+        def is_valid_location(location):
+            x, y = location
+            return (0 <= x < len_rows) and (0 <= y < len_cols) and (initial_map[x][y] != 'I')
+
         for i in range(len_rows):
             for j in range(len_cols):
                 self.location_dict[(i, j)] = dict()  # A dictionary that represents the possibilities in this location, as described above.
@@ -82,10 +87,6 @@ class OnePieceProblem(search.Problem):
                 self.location_dict[(i, j)]['t'] = list()  # A list of all treasure names that can be collected in this location.
                 
         self.islands_with_treasures = initial['treasures']  # A dictionary that represents the treasures and their locations when on their island.
-
-        def is_valid_location(location):
-            x, y = location
-            return (0 <= x < len_rows) and (0 <= y < len_cols) and (initial_map[x][y] != 'I')
 
         for treasure, location in initial['treasures'].items():  # For each treasure, update the locations that from them we can collect the treasure.
             i = location[0]
@@ -145,7 +146,7 @@ class OnePieceProblem(search.Problem):
             # checks if the marine arrived at the first position in his track, if no, he keeps moving backwards (direction = -1)
             # if the marine's track is of length 1, the marine doesn't move
 
-            if (state.marines_position[marine][0] < len(track) - 1) and ((state.marines_position[marine][1] == 1) or (state.marines_position[marine][0] == 1[i] == 0)):
+            if (state.marines_position[marine][0] < len(track) - 1) and ((state.marines_position[marine][1] == 1) or (state.marines_position[marine][0] == 0)):
                 new_state.marines_position[marine] = (state.marines_position[marine][0] + 1, 1)
             elif (state.marines_position[marine][0] > 0) and ((state.marines_position[marine][1] == -1) or (state.marines_position[marine][0] == len(track) - 1)):
                 new_state.marines_position[marine] = (state.marines_position[marine][0] - 1, -1)
