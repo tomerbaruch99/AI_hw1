@@ -92,9 +92,9 @@ class OnePieceProblem(search.Problem):
             i = location[0]
             j = location[1]
             for b in [-1, 1]:
-                for location in [(i + b, j), (i, j + b)]:  # The locations that are adjacent to the treasure location.
-                    if is_valid_location(location):
-                        self.location_dict[location]['t'].append(treasure)  # Add the treasure to the list of treasures that can be collected in this location.
+                for new_loc in [(i + b, j), (i, j + b)]:  # The locations that are adjacent to the treasure location.
+                    if is_valid_location(new_loc):
+                        self.location_dict[new_loc]['t'].append(treasure)  # Add the treasure to the list of treasures that can be collected in this location.
         
         self.marines_tracks = initial['marine_ships']  # A dictionary that represents the tracks of the marine ships.
 
