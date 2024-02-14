@@ -50,15 +50,15 @@ class OnePieceProblem(search.Problem):
         # These are the keys of the inner dictionaries, and the values in the first five keys are booleans that represent whether the corresponding action is possible in this location.
         # The 6th key, represented by 't', contains a list of all treasure names that can be collected in this location.
 
-        len_rows = len(initial_map)
-        len_cols = len(initial_map[0])
+        self.len_rows = len(initial_map)
+        self.len_cols = len(initial_map[0])
 
         def is_valid_location(location):
             x, y = location
-            return (0 <= x < len_rows) and (0 <= y < len_cols) and (initial_map[x][y] != 'I')
+            return (0 <= x < self.len_rows) and (0 <= y < self.len_cols) and (initial_map[x][y] != 'I')
 
-        for i in range(len_rows):
-            for j in range(len_cols):
+        for i in range(self.len_rows):
+            for j in range(self.len_cols):
                 self.location_dict[(i, j)] = dict()  # A dictionary that represents the possibilities in this location, as described above.
 
                 if initial_map[i][j] == 'B':
@@ -177,7 +177,7 @@ class OnePieceProblem(search.Problem):
         """ This is the heuristic. It gets a node (not a state,
         state can be accessed via node.state)
         and returns a goal distance estimate"""
-        return self.h_2(node)
+        return self.h_3(node)
     
 
     def h_1(self, node):
@@ -207,14 +207,55 @@ class OnePieceProblem(search.Problem):
             for direction, index in zip(['u', 'd', 'l', 'r'], [(-1,0), (1,0), (0,-1), (0,1)]):
                 x = location[0] + index[0]  # The x coordinate of the adjacent cell.
                 y = location[1] + index[1]  # The y coordinate of the adjacent cell.
-                if (self.location_dict[location][direction] == True) and (x != self.base[0] or y != self.base[1]):  # If the adjacent cell is a sea cell.
-                    temp_dist = abs(self.base[0]-x) + abs(self.base[1]-y)  # The L1-distance from the adjacent cell to the base (Manhattan Distance).
-                    
-                    # Update the distance from the treasure to the base if the new distance is shorter.
-                    if temp_dist < min_distances_to_base[t]:
-                        min_distances_to_base[t] = temp_dist
+                if (0 <= x < self.len_rows) and (0 <= y < self.len_cols):
+                    if (self.location_dict[location][direction]) and (x != self.base[0] or y != self.base[1]):  # If the adjacent cell is a sea cell.
+                        temp_dist = abs(self.base[0]-x) + abs(self.base[1]-y)  # The L1-distance from the adjacent cell to the base (Manhattan Distance).
+
+                        # Update the distance from the treasure to the base if the new distance is shorter.
+                        if temp_dist < min_distances_to_base[t]:
+                            min_distances_to_base[t] = temp_dist
 
         return sum(min_distances_to_base) / num_pirates
+
+
+# 0 treasures means need to collect more treasures - small weight
+    def h_3(self, node):
+        weights = [10, 5, 2]  # weighted num of treasures each pirate holds
+        # min_arg = 0
+        score = 0
+        # pirate_best_route_to_base = {pirate: (0,0) for pirate in node.state.pirate_locations.keys()}
+        for pirate, location in node.state.pirate_locations.items():
+            min_distances_to_base = float('inf')
+            for direction, index in zip(['u', 'd', 'l', 'r'], [(-1, 0), (1, 0), (0, -1), (0, 1)]):
+                x = location[0] + index[0]  # The x coordinate of the adjacent cell.
+                y = location[1] + index[1]  # The y coordinate of the adjacent cell.
+                if (0 <= x < self.len_rows) and (0 <= y < self.len_cols):
+                    if self.location_dict[location][direction]:
+                        temp_dist = abs(self.base[0] - x) + abs(self.base[1] - y)  # The L1-distance from the adjacent cell to the base (Manhattan Distance).
+
+                        # Update the distance from the treasure to the base if the new distance is shorter.
+                        if temp_dist < min_distances_to_base:
+                            min_distances_to_base = temp_dist
+                            # min_arg = (x,y)
+            # pirate_best_route_to_base[pirate] = (min_arg, min_distances_to_base)
+            score += min_distances_to_base * weights[node.state.num_treasures_held_per_pirate[pirate]]
+
+        for treasure in node.state.treasures_locations.values():
+            closest_pirate_distance = float('inf')
+            if type(treasure) == tuple:
+                for pirate, location in node.state.pirate_locations.items():
+                    for index in [(-1, 0), (1, 0), (0, -1), (0, 1)]:  # Checking all adjacent cells to see if they can be used to collect the treasure.
+                        x = treasure[0] + index[0]
+                        y = treasure[1] + index[1]
+                        if (0 <= x < self.len_rows) and (0 <= y < self.len_cols):
+                            if treasure in self.location_dict[(x, y)]['t']:
+                                temp_dist = abs(x - location[0]) + abs(y - location[1])
+                                if temp_dist < closest_pirate_distance:
+                                    closest_pirate_distance = temp_dist
+                    score += closest_pirate_distance * weights[2 - node.state.num_treasures_held_per_pirate[pirate]]
+        return score
+
+
 
 
 def create_onepiece_problem(game):
