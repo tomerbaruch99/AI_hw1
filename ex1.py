@@ -14,30 +14,21 @@ class State:
         treasures_locations = list(). """
     def __init__(self, pirates, treasures, num_marines):
         self.pirate_locations = list()
-        for p in pirates.values():
+        for p in pirates:
             self.pirate_locations.append(p)
 
         self.num_treasures_held_per_pirate = [0] * len(self.pirate_locations)
-        self.treasures_locations = treasures
+        self.treasures_locations = [t for t in treasures]
         
         self.marines_locations_indices = np.zeros(shape=num_marines, dtype=int)  # Index of track list, which indicates the location of the marine. The marine starts in the first entry of the track list.
         self.marines_directions = np.ones(shape=num_marines)  # Direction of the marine w.r.t its track: 1 = next item in list, -1 = previous item in list
 
-    def __init__(self):
-        self.pirate_locations = list()
-        self.num_treasures_held_per_pirate = list()
-        self.treasures_locations = list()
-        self.marines_locations_indices = np.zeros(dtype=int)
-        self.marines_directions = np.ones()
-
     def clone_state(self):
-        new_state = State()
-        for p in range(len(self.pirate_locations)):
-            new_state.pirate_locations.append(self.pirate_locations[p])
-            new_state.num_treasures_held_per_pirate.append(self.num_treasures_held_per_pirate[p])
-        new_state.treasures_locations = [t for t in self.treasures_locations]
-        new_state.marines_locations_indices = np.array([idx for idx in self.marines_locations_indices], dtype=int)
-        new_state.marines_directions = np.array([direction for direction in self.marines_directions])
+        new_state = State(self.pirate_locations, self.treasures_locations, len(self.marines_locations_indices))
+        new_state.num_treasures_held_per_pirate = [p for p in self.num_treasures_held_per_pirate]
+        for m in range(len(self.marines_locations_indices)):
+            new_state.marines_locations_indices[m] = self.marines_locations_indices[m]
+            new_state.marines_directions[m] = self.marines_directions[m]
         return new_state
 
 
@@ -112,7 +103,7 @@ class OnePieceProblem(search.Problem):
         self.marines_tracks = initial['marine_ships'].values()
         self.num_marines = len(initial['marine_ships'])
 
-        initial_state = State(initial['pirate_ships'], self.islands_with_treasures, self.num_marines)
+        initial_state = State(initial['pirate_ships'].values(), self.islands_with_treasures, self.num_marines)
         search.Problem.__init__(self, initial_state)
 
 
