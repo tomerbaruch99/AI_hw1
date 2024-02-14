@@ -2,7 +2,6 @@ import search
 import random
 import math
 import numpy as np
-import copy
 
 ids = ["314779166", "322620873"]
 
@@ -15,17 +14,28 @@ class State:
         treasures_locations = list(). """
     def __init__(self, pirates, treasures, num_marines):
         self.pirate_locations = list()
-        for p in pirates.values():
+        for p in pirates:
             self.pirate_locations.append(p)
 
         self.num_treasures_held_per_pirate = [0] * len(self.pirate_locations)
-        self.treasures_locations = treasures
+        self.treasures_locations = [t for t in treasures]
         
         self.marines_locations_indices = np.zeros(shape=num_marines, dtype=int)  # Index of track list, which indicates the location of the marine. The marine starts in the first entry of the track list.
         self.marines_directions = np.ones(shape=num_marines)  # Direction of the marine w.r.t its track: 1 = next item in list, -1 = previous item in list
 
+
+    def clone_state(self):
+        new_state = State(self.pirate_locations, self.treasures_locations, len(self.marines_locations_indices))
+        new_state.num_treasures_held_per_pirate = [p for p in self.num_treasures_held_per_pirate]
+        for m in range(len(self.marines_locations_indices)):
+            new_state.marines_locations_indices[m] = self.marines_locations_indices[m]
+            new_state.marines_directions[m] = self.marines_directions[m]
+        return new_state
+
+
     def __lt__(self, other):
         return id(self) < id(other)  # TODO: Changed tie braker if necessary.
+
 
 class OnePieceProblem(search.Problem):
     """This class implements a medical problem according to problem description file"""
@@ -37,7 +47,10 @@ class OnePieceProblem(search.Problem):
         initial_map = np.array(initial['map'])
         self.len_rows = initial_map.shape[0]
         self.len_cols = initial_map.shape[1]
-        self.location_matrix = np.zeros(shape=(self.len_rows, self.len_cols, 6), dtype=int)
+        self.num_of_treasures = len(initial['treasures'])
+        self.num_digits = len(str(self.num_of_treasures))
+
+        self.location_matrix = np.zeros(shape=(self.len_rows, self.len_cols, 5 + self.num_digits), dtype=int)
         # For every location in the map, we will have a list of possibilities that can be done in this location.
         # The possibilities are: base, up, down, left, right, treasure collecting.
         # This list is represented by the following indices: 0, 1, 2, 3, 4, 5.
@@ -47,7 +60,6 @@ class OnePieceProblem(search.Problem):
         self.islands_with_treasures = list()
         for t in initial['treasures'].values():
             self.islands_with_treasures.append(t)
-        self.num_of_treasures = len(initial['treasures'])
         # self.treasures_collecting_locations = np.full((self.num_of_treasures, 4, 2), -1)  # A matrix that represents the indices of the treasures in the map. The first index is the treasure number, the second index is the location in which we can collect the treasure in the map.
 
         def is_valid_location(location):
@@ -76,23 +88,24 @@ class OnePieceProblem(search.Problem):
 
         for treasure, location in initial['treasures'].items():
             treasure_num = int(treasure.split('_')[1])  # The number of the treasure.
+            treasure_num_digits = len(str(treasure_num))
             i = location[0]
             j = location[1]
             # count = 0
             for b in [-1, 1]:
                 if is_valid_location((i + b, j)):
-                    self.location_matrix[i + b][j][5] = self.location_matrix[i + b][j][5] * 10 + treasure_num
+                    self.location_matrix[i + b][j][4 + treasure_num_digits] = self.location_matrix[i + b][j][4 + treasure_num_digits] * (10 ** treasure_num_digits) + treasure_num
                     # update_treasure_collecting_locations(treasure_num, count, i + b, j)
                     # count += 1
                 if is_valid_location((i, j + b)):
-                    self.location_matrix[i + b][j][5] = self.location_matrix[i][j + b][5] * 10 + treasure_num
+                    self.location_matrix[i][j + b][4 + treasure_num_digits] = self.location_matrix[i][j + b][4 + treasure_num_digits] * (10 ** treasure_num_digits) + treasure_num
                     # update_treasure_collecting_locations(treasure_num, count, i, j + b)
                     # count += 1
         
         self.marines_tracks = initial['marine_ships'].values()
         self.num_marines = len(initial['marine_ships'])
 
-        initial_state = State(initial['pirate_ships'], copy.deepcopy(self.islands_with_treasures), self.num_marines)
+        initial_state = State(initial['pirate_ships'].values(), self.islands_with_treasures, self.num_marines)
         search.Problem.__init__(self, initial_state)
 
 
@@ -118,11 +131,12 @@ class OnePieceProblem(search.Problem):
             if action_options[3]: all_possible_actions.append(('sail', pirate_name, (row_location, col_location - 1)))
             if action_options[4]: all_possible_actions.append(('sail', pirate_name, (row_location, col_location + 1)))
 
-            if action_options[5] and (state.num_treasures_held_per_pirate[pirate] < 2):
-                t_num = action_options[5] % 10
-                while t_num:
-                    all_possible_actions.append(('collect_treasure', pirate_name, 'treasure_' + str(t_num)))
-                    t_num = action_options[5] // 10
+            for power, index in enumerate(range(5,self.num_digits+5)):
+                if action_options[index] and (state.num_treasures_held_per_pirate[pirate] < 2):
+                    t_num = action_options[index] % (10 ** (power+1))
+                    while t_num:
+                        all_possible_actions.append(('collect_treasure', pirate_name, 'treasure_' + str(t_num)))
+                        t_num = action_options[index] // (10 ** (power+1))
 
             all_possible_actions.append(('wait', pirate_name))
 
@@ -133,7 +147,7 @@ class OnePieceProblem(search.Problem):
         """Return the state that results from executing the given
         action in the given state. The action must be one of
         self.actions(state)."""
-        new_state = copy.deepcopy(state)
+        new_state = state.clone_state()
         pirate_num = int(action[1].split("_")[2])
 
         for i, track in enumerate(self.marines_tracks):
@@ -205,7 +219,7 @@ class OnePieceProblem(search.Problem):
                     temp_dist = abs(self.base[0]-x) + abs(self.base[1]-y)
                     if temp_dist < min_distances_to_base[t_idx]:
                         min_distances_to_base[t_idx] = temp_dist
-        return np.sum(min_distances_to_base) / num_pirates
+        return np.sum(min_distances_to_base) #/ num_pirates
 
 
 
