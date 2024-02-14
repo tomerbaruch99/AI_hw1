@@ -1,7 +1,6 @@
 import search
 import random
 import math
-import numpy as np
 
 ids = ["314779166", "322620873"]
 
@@ -12,24 +11,36 @@ class State:
                                                     self.pirate_location_idx.append(start_point)  # Indices of the initial location of the pirate ships.
         num_treasures_held_per_pirate = list()
         treasures_locations = list(). """
-    def __init__(self, pirates, treasures, num_marines):
-        self.pirate_locations = list()
-        for p in pirates:
-            self.pirate_locations.append(p)
+    def __init__(self, pirates, treasures, marine_names):
+        self.pirate_locations = {p: loc for p, loc in pirates.items()} # dict of pirates and their locations in the map
+        self.treasures_locations = {t: loc for t, loc in treasures.items()} # dict of a treasure name with its location on the map
 
-        self.num_treasures_held_per_pirate = [0] * len(self.pirate_locations)
-        self.treasures_locations = [t for t in treasures]
-        
-        self.marines_locations_indices = np.zeros(shape=num_marines, dtype=int)  # Index of track list, which indicates the location of the marine. The marine starts in the first entry of the track list.
-        self.marines_directions = np.ones(shape=num_marines)  # Direction of the marine w.r.t its track: 1 = next item in list, -1 = previous item in list
+        # dict of marines and a tuple of location index in track and direction for each (1:going forward in track, -1:going backward in track)
+        if marine_names:
+            self.marines_position = {m: (0, 1) for m in marine_names}
+
+        # dict of pirates and the number of treasure each one holds
+        self.num_treasures_held_per_pirate = {p: 0 for p in pirates}
+        # for p in pirates:
+        #     self.pirate_locations.append(p)
+        # self.marines_locations_indices = [0] * len(num_marines) # Index of track list, which indicates the location of the marine. The marine starts in the first entry of the track list.
+        # self.marines_directions = [1] * len(num_marines)  # Direction of the marine w.r.t its track: 1 = next item in list, -1 = previous item in list
 
 
     def clone_state(self):
-        new_state = State(self.pirate_locations, self.treasures_locations, len(self.marines_locations_indices))
-        new_state.num_treasures_held_per_pirate = [p for p in self.num_treasures_held_per_pirate]
-        for m in range(len(self.marines_locations_indices)):
-            new_state.marines_locations_indices[m] = self.marines_locations_indices[m]
-            new_state.marines_directions[m] = self.marines_directions[m]
+        new_state = State(self.pirate_locations, self.treasures_locations, 0)
+        new_state.marines_position = {m: loc_direct for m, loc_direct in self.marines_position.items()}
+        new_state.num_treasures_held_per_pirate = {p: num_t for p, num_t in self.num_treasures_held_per_pirate.items()}
+
+        # new_state.pirate_locations = {p: 0 for p in pirates} self.pirate_locations
+        # new_state.num_treasures_held_per_pirate = [p for p in self.num_treasures_held_per_pirate]
+        # for m in marine_names:
+        #     new_state.marines_position[m] = (0,
+        #                                 1)  # tuple of location index in track and direction (1:going forward in track, -1:going backward in track)
+        #
+        # for m in range(len(self.marines_locations_indices)):
+        #     new_state.marines_locations_indices[m] = self.marines_locations_indices[m]
+        #     new_state.marines_directions[m] = self.marines_directions[m]
         return new_state
 
 
@@ -116,30 +127,23 @@ class OnePieceProblem(search.Problem):
         all_possible_actions = list()
         pirate_locations = state.pirate_locations
         
-        for pirate in range(len(pirate_locations)):
-            pirate_name = "pirate_ship_" + str(pirate+1)
-            row_location = pirate_locations[pirate][0]
-            col_location = pirate_locations[pirate][1]
-            action_options = self.location_matrix[row_location][col_location]
+        for pirate_name in pirate_locations.keys():
+            row_location = pirate_locations[pirate_name][0]
+            col_location = pirate_locations[pirate_name][1]
+            action_options = self.location_dict[(row_location,col_location)]
             
             # Reminder to the indices and their meanings, according to order:
-            # 0=base, 1=up, 2=down, 3=left, 4=right, 5=treasure collecting.
-            if action_options[0]: all_possible_actions.append(("deposit_treasures", pirate_name))
+            # b=base, u=up, d=down, l=left, r=right, t=treasure collecting.
+            if action_options['b']: all_possible_actions.append(("deposit_treasures", pirate_name))
 
-            if action_options[1]: all_possible_actions.append(('sail', pirate_name, (row_location - 1, col_location)))
-            if action_options[2]: all_possible_actions.append(('sail', pirate_name, (row_location + 1, col_location)))
-            if action_options[3]: all_possible_actions.append(('sail', pirate_name, (row_location, col_location - 1)))
-            if action_options[4]: all_possible_actions.append(('sail', pirate_name, (row_location, col_location + 1)))
-
-            for power, index in enumerate(range(5,self.num_digits+5)):
-                if action_options[index] and (state.num_treasures_held_per_pirate[pirate] < 2):
-                    t_num = action_options[index] % (10 ** (power+1))
-                    while t_num:
-                        all_possible_actions.append(('collect_treasure', pirate_name, 'treasure_' + str(t_num)))
-                        t_num = action_options[index] // (10 ** (power+1))
-
+            if action_options['u']: all_possible_actions.append(('sail', pirate_name, (row_location - 1, col_location)))
+            if action_options['d']: all_possible_actions.append(('sail', pirate_name, (row_location + 1, col_location)))
+            if action_options['l']: all_possible_actions.append(('sail', pirate_name, (row_location, col_location - 1)))
+            if action_options['r']: all_possible_actions.append(('sail', pirate_name, (row_location, col_location + 1)))
+            if len(action_options['t']) and (state.num_treasures_held_per_pirate[pirate_name] < 2):
+                for t in action_options['t']:
+                    all_possible_actions.append(('collect_treasure', pirate_name, t))
             all_possible_actions.append(('wait', pirate_name))
-
         return all_possible_actions
 
 
@@ -148,40 +152,47 @@ class OnePieceProblem(search.Problem):
         action in the given state. The action must be one of
         self.actions(state)."""
         new_state = state.clone_state()
-        pirate_num = int(action[1].split("_")[2])
+        pirate_name = action[1]
+        # pirate_num = int(action[1].split("_")[2])
 
-        for i, track in enumerate(self.marines_tracks):
-            if (state.marines_locations_indices[i] < len(track) - 1) and ((state.marines_directions[i] == 1) or (state.marines_locations_indices[i] == 0)):
-                new_state.marines_locations_indices[i] += 1
-                new_state.marines_directions[i] = 1
-            elif (state.marines_locations_indices[i] > 0) and ((state.marines_directions[i] == -1) or (state.marines_locations_indices[i] == len(track) - 1)):
-                new_state.marines_locations_indices[i] -= 1
-                new_state.marines_directions[i] = -1
+        # dict of marines and a tuple of location index in track and direction for each (1:going forward in track, -1:going backward in track)
+        # self.marines_position = {m: (0, 1) for m in marine_names}
 
-        marines_locations = [marine_track[new_state.marines_locations_indices[i]] for i, marine_track in enumerate(self.marines_tracks)]
+
+        for marine, track in self.marines_tracks.items():
+            # checks if the marine arrived at the last position in his track, if no, he keeps moving forward (direction = 1)
+            # checks if the marine arrived at the first position in his track, if no, he keeps moving backwards (direction = -1)
+            # if the marine's track is of length 1, the marine doesn't move
+
+            if (state.marines_position[marine][0] < len(track) - 1) and ((state.marines_position[marine][1] == 1) or (state.marines_position[marine][0] == 1[i] == 0)):
+                new_state.marines_position[marine] = (state.marines_position[marine][0] + 1, 1)
+            elif (state.marines_position[marine][0] > 0) and ((state.marines_position[marine][1] == -1) or (state.marines_position[marine][0] == len(track) - 1)):
+                new_state.marines_position[marine] = (state.marines_position[marine][0] - 1, -1)
+
+        # dict of marines and their locations on the map (after the updating of the marines new positions)
+        marines_locations = {marine: track[new_state.marines_position[marine][0]] for marine, track in self.marines_tracks.items()}
 
         if action[0] == 'deposit_treasures':
-            new_state.num_treasures_held_per_pirate[pirate_num - 1] = 0  # Updating the number of treasures held by the pirate ship that did this action.
-            for loc_idx in range(len(new_state.treasures_locations)):
-                if new_state.treasures_locations[loc_idx] == pirate_num:
-                    new_state.treasures_locations[loc_idx] = 'b'
-                    new_state.num_treasures_held_per_pirate[pirate_num - 1] = 0
+            new_state.num_treasures_held_per_pirate[pirate_name] = 0  # Updating the number of treasures held by the pirate ship that did this action.
+            for treasure_name in new_state.treasures_locations.keys():
+                if new_state.treasures_locations[treasure_name] == pirate_name:
+                    new_state.treasures_locations[treasure_name] = 'b'
 
         if action[0] == 'sail':
-            new_state.pirate_locations[pirate_num - 1] = action[2]
+            new_state.pirate_locations[pirate_name] = action[2]
                     
-        if action[0] == 'collect_treasure' and new_state.num_treasures_held_per_pirate[pirate_num - 1] < 2:
-            new_state.num_treasures_held_per_pirate[pirate_num - 1] += 1  # Updating the number of treasures held by the pirate ship that did this action.
-            new_state.treasures_locations[int(action[2].split("_")[1]) - 1] = pirate_num
+        if action[0] == 'collect_treasure' and new_state.num_treasures_held_per_pirate[pirate_name] < 2:
+            new_state.num_treasures_held_per_pirate[pirate_name] += 1  # Updating the number of treasures held by the pirate ship that did this action.
+            new_state.treasures_locations[action[2]] = pirate_name
         
         # if action[0] == 'wait', nothing changes (except the marines - handled below).
 
-        for m in range(len(self.marines_tracks)):
-            if marines_locations[m] == new_state.pirate_locations[pirate_num - 1]:
-                for loc_idx in range(len(new_state.treasures_locations)):
-                    if new_state.treasures_locations[loc_idx] == pirate_num:
-                        new_state.treasures_locations[loc_idx] = self.islands_with_treasures[loc_idx]
-                        new_state.num_treasures_held_per_pirate[pirate_num - 1] = 0
+        for m in self.marines_tracks.keys():
+            if marines_locations[m] == new_state.pirate_locations[pirate_name]:
+                new_state.num_treasures_held_per_pirate[pirate_name] = 0
+                for treasure_name in new_state.treasures_locations.keys():
+                    if new_state.treasures_locations[treasure_name] == pirate_name:
+                        new_state.treasures_locations[treasure_name] = self.islands_with_treasures[treasure_name]
 
         return new_state
 
