@@ -55,68 +55,49 @@ class OnePieceProblem(search.Problem):
         """Don't forget to implement the goal test
         You should change the initial to your own representation.
         search.Problem.__init__(self, initial) creates the root node"""
-        initial_map = np.array(initial['map'])
-        self.len_rows = initial_map.shape[0]
-        self.len_cols = initial_map.shape[1]
-        self.num_of_treasures = len(initial['treasures'])
-        self.num_digits = len(str(self.num_of_treasures))
+        initial_map = initial['map']
+        self.location_dict = dict()
+        # A dictionary that represents the map. The keys are the indices of the map, 
+        # and the values are dictionaries that represent the possibilities in this location.
+        # The possibilities are: 'b'=base, 'u'=up, 'd'=down, 'l'=left, 'r'=right, 't'=treasure collecting.
+        # These are the keys of the inner dictionaries, and the values in the first five keys are booleans that represent whether the corresponding action is possible in this location.
+        # The 6th key, represented by 't', contains a list of all treasure names that can be collected in this location.
 
-        self.location_matrix = np.zeros(shape=(self.len_rows, self.len_cols, 5 + self.num_digits), dtype=int)
-        # For every location in the map, we will have a list of possibilities that can be done in this location.
-        # The possibilities are: base, up, down, left, right, treasure collecting.
-        # This list is represented by the following indices: 0, 1, 2, 3, 4, 5.
-        # In the 0 to 4 indices will be indicators that represent whether the corresponding action is possible,
-        # and in the 5th index will be the number of the treasure that can be collected in this location.
+        len_rows = len(initial_map)
+        len_cols = len(initial_map[0])
+        for i in range(len_rows):
+            for j in range(len_cols):
+                self.location_dict[(i, j)] = dict()  # A dictionary that represents the possibilities in this location, as described above.
 
-        self.islands_with_treasures = list()
-        for t in initial['treasures'].values():
-            self.islands_with_treasures.append(t)
-        # self.treasures_collecting_locations = np.full((self.num_of_treasures, 4, 2), -1)  # A matrix that represents the indices of the treasures in the map. The first index is the treasure number, the second index is the location in which we can collect the treasure in the map.
+                if initial_map[i][j] == 'B':
+                    self.base = (i, j)  # The location of the base.
+                    self.location_dict[(i, j)]['b'] = True  # base; can deposit treasure here
+                else:
+                    self.location_dict[(i, j)]['b'] = False  # isn't the base
+
+                for direction, index in zip(['u', 'd', 'l', 'r'], [(i-1, j), (i+1, j), (i, j-1), (i, j+1)]):
+                    # Check if the location is valid and not an island, and if so, add the direction up\down\left\right to the location dictionary with the value True, so that we know that we can sail in this direction.
+                    self.location_dict[(i, j)][direction] = is_valid_location(index)
+                
+                self.location_dict[(i, j)]['t'] = list()  # A list of all treasure names that can be collected in this location.
+                
+        self.islands_with_treasures = initial['treasures']  # A dictionary that represents the treasures and their locations when on their island.
 
         def is_valid_location(location):
             x, y = location
-            return (0 <= x < self.len_rows) and (0 <= y < self.len_cols) and (initial_map[x][y] != 'I')
-    
-        for i in range(self.len_rows):
-            for j in range(self.len_cols):
-                if initial_map[i][j] == 'B':
-                    self.base = np.array([i, j])
-                    self.location_matrix[i][j][0] = 1  # base; can deposit treasure here
+            return (0 <= x < len_rows) and (0 <= y < len_cols) and (initial_map[x][y] != 'I')
 
-                if is_valid_location((i-1, j)):
-                    self.location_matrix[i][j][1] = 1  # up
-                if is_valid_location((i+1, j)):
-                    self.location_matrix[i][j][2] = 1  # down
-                if is_valid_location((i, j-1)):
-                    self.location_matrix[i][j][3] = 1  # left
-                if is_valid_location((i, j+1)):
-                    self.location_matrix[i][j][4] = 1  # right
-
-        # def update_treasure_collecting_locations(t_num, count, i, j):
-        #     self.location_matrix[i][j][5] = t_num
-        #     self.treasures_collecting_locations[t_num-1][count][0] = i
-        #     self.treasures_collecting_locations[t_num-1][count][1] = j
-
-        for treasure, location in initial['treasures'].items():
-            treasure_num = int(treasure.split('_')[1])  # The number of the treasure.
-            treasure_num_digits = len(str(treasure_num))
+        for treasure, location in initial['treasures'].items():  # For each treasure, update the locations that from them we can collect the treasure.
             i = location[0]
             j = location[1]
-            # count = 0
             for b in [-1, 1]:
-                if is_valid_location((i + b, j)):
-                    self.location_matrix[i + b][j][4 + treasure_num_digits] = self.location_matrix[i + b][j][4 + treasure_num_digits] * (10 ** treasure_num_digits) + treasure_num
-                    # update_treasure_collecting_locations(treasure_num, count, i + b, j)
-                    # count += 1
-                if is_valid_location((i, j + b)):
-                    self.location_matrix[i][j + b][4 + treasure_num_digits] = self.location_matrix[i][j + b][4 + treasure_num_digits] * (10 ** treasure_num_digits) + treasure_num
-                    # update_treasure_collecting_locations(treasure_num, count, i, j + b)
-                    # count += 1
+                for location in [(i + b, j), (i, j + b)]:  # The locations that are adjacent to the treasure location.
+                    if is_valid_location(location):
+                        self.location_dict[location]['t'].append(treasure)  # Add the treasure to the list of treasures that can be collected in this location.
         
-        self.marines_tracks = initial['marine_ships'].values()
-        self.num_marines = len(initial['marine_ships'])
+        self.marines_tracks = initial['marine_ships']  # A dictionary that represents the tracks of the marine ships.
 
-        initial_state = State(initial['pirate_ships'].values(), self.islands_with_treasures, self.num_marines)
+        initial_state = State(initial['pirate_ships'], initial['treasures'], initial['marine_ships'].keys())  # Create the initial state.
         search.Problem.__init__(self, initial_state)
 
 
@@ -200,10 +181,11 @@ class OnePieceProblem(search.Problem):
     def goal_test(self, state):
         """ Given a state, checks if this is the goal state.
          Returns True if it is, False otherwise."""
-        for t in state.treasures_locations:
-            if t != 'b':
+        for t in state.treasures_locations.values():
+            if t != 'b':  # The goal state is when all the treasures are in the base.
                 return False
         return True
+    
 
     def h(self, node):
         """ This is the heuristic. It gets a node (not a state,
@@ -211,27 +193,46 @@ class OnePieceProblem(search.Problem):
         and returns a goal distance estimate"""
         return self.h_2(node)
     
+
     def h_1(self, node):
-        return sum(1 for t in node.state.treasures_locations if t == 'I') / len(node.state.pirate_locations)            
+        """ Summing the indicators of the treasures that are still on their island
+        (a treaure that is still on the island is represented by a tuple, while a treasure that isn't is represented by 'b' or a pirate name),
+        and dividing by the number of pirates. """
+        return sum(1 for t in node.state.treasures_locations.values() if type(t) == tuple) / len(node.state.pirate_locations.keys())
+
 
     def h_2(self, node):
-        num_pirates = len(node.state.pirate_locations)
-        min_distances_to_base = np.full((self.num_of_treasures,), np.inf)
-        for t_idx, location in enumerate(node.state.treasures_locations):
-            if location == 'b':
-                min_distances_to_base[t_idx] = 0
-                continue
-            elif type(location) == int:
-                location = node.state.pirate_locations[location - 1]
-            for i, direction in enumerate([(1,0), (-1,0), (0,-1), (0,1)]):
-                x = location[0]+direction[0]
-                y = location[1]+direction[1]
-                if (self.location_matrix[location[0]][location[1]][i] == 1) and (x != self.base[0] or y != self.base[1]):
-                    temp_dist = abs(self.base[0]-x) + abs(self.base[1]-y)
-                    if temp_dist < min_distances_to_base[t_idx]:
-                        min_distances_to_base[t_idx] = temp_dist
-        return np.sum(min_distances_to_base) #/ num_pirates
+        """ Summing the minimum distances from each treasure to the base (using Manhattan Distance),
+        and dividing by the number of pirates. """
+        num_pirates = len(node.state.pirate_locations.keys())
 
+        # A list of the minimum distances from each treasure to the base.
+        # Initialized with infinity values (so that the distance of an unreachable treasure will be infinity) and updated with the actual distances.
+        min_distances_to_base = [float('inf')] * len(node.state.treasures_locations.keys())
+        
+        for t, location in enumerate(node.state.treasures_locations.values()):
+            if location == 'b':
+                min_distances_to_base[t] = 0  # The distance from the base to the base is 0.
+                continue
+            elif type(location) == str:
+                location = node.state.pirate_locations[location]  # If the treasure is on a pirate ship, get the location of the pirate ship.
+            
+            # For each direction, check if there is an adjacent sea cell in this direction and if so, update the distance from this adjacent cell to the base - but only if it's shorter than the current distance.
+            for direction, index in zip(['u', 'd', 'l', 'r'], [(-1,0), (1,0), (0,-1), (0,1)]):
+                x = location[0] + index[0]  # The x coordinate of the adjacent cell.
+                y = location[1] + index[1]  # The y coordinate of the adjacent cell.
+                if (self.location_dict[location][direction] == True) and (x != self.base[0] or y != self.base[1]):  # If the adjacent cell is a sea cell.
+                    temp_dist = abs(self.base[0]-x) + abs(self.base[1]-y)  # The L1-distance from the adjacent cell to the base (Manhattan Distance).
+                    
+                    # Update the distance from the treasure to the base if the new distance is shorter.
+                    if temp_dist < min_distances_to_base[t]:
+                        min_distances_to_base[t] = temp_dist
+
+        return sum(min_distances_to_base) / num_pirates
+
+
+def create_onepiece_problem(game):
+    return OnePieceProblem(game)
 
 
     """Feel free to add your own functions
@@ -264,7 +265,4 @@ class OnePieceProblem(search.Problem):
                 normalized_distances[t_num+1] = float('inf')
         return normalized_distances
 
-
-def create_onepiece_problem(game):
-    return OnePieceProblem(game)
 
