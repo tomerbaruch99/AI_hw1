@@ -34,7 +34,7 @@ class Problem(object):
         state, if there is a unique goal.  Your subclass's constructor can add
         other arguments."""
         # The initial state is an object of State class, containing the pirates and treasures' initial location.
-        self.initial = initial
+        self.initial_state = initial
         self.goal = goal
 
     def actions(self, state):
@@ -152,7 +152,7 @@ def astar_search(problem, h=None):
     f = memoize(lambda n: n.path_cost + h(n), 'f')
 
     queue = PriorityQueue(min, f)
-    queue.append(Node(problem.initial))
+    queue.append(Node(problem.initial_state))
     closed = dict()  # A dictionary of states and booliean values, to check if a state is in the closed list or not.
     while queue:
         node = queue.pop()
