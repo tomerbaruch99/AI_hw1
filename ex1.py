@@ -23,6 +23,7 @@ class State:
         self.marines_locations_indices = np.zeros(shape=num_marines, dtype=int)  # Index of track list, which indicates the location of the marine. The marine starts in the first entry of the track list.
         self.marines_directions = np.ones(shape=num_marines)  # Direction of the marine w.r.t its track: 1 = next item in list, -1 = previous item in list
 
+
     def clone_state(self):
         new_state = State(self.pirate_locations, self.treasures_locations, len(self.marines_locations_indices))
         new_state.num_treasures_held_per_pirate = [p for p in self.num_treasures_held_per_pirate]
@@ -34,6 +35,7 @@ class State:
 
     def __lt__(self, other):
         return id(self) < id(other)  # TODO: Changed tie braker if necessary.
+
 
 class OnePieceProblem(search.Problem):
     """This class implements a medical problem according to problem description file"""
@@ -217,7 +219,7 @@ class OnePieceProblem(search.Problem):
                     temp_dist = abs(self.base[0]-x) + abs(self.base[1]-y)
                     if temp_dist < min_distances_to_base[t_idx]:
                         min_distances_to_base[t_idx] = temp_dist
-        return np.sum(min_distances_to_base) / num_pirates
+        return np.sum(min_distances_to_base) #/ num_pirates
 
 
 
