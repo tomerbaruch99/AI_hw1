@@ -5,12 +5,13 @@ import math
 ids = ["314779166", "322620873"]
 
 class State:
-    """ state structure:
-        pirate_locations = list(), for example: self.pirate_location_idx = list()
-                                                for start_point in initial['pirate_ships'].values():
-                                                    self.pirate_location_idx.append(start_point)  # Indices of the initial location of the pirate ships.
-        num_treasures_held_per_pirate = list()
-        treasures_locations = list(). """
+    """
+    state structure:
+    pirate_locations = dict(), keys: pirate names, values: tuple of location indices in the map.
+    treasures_locations = dict(), keys: treasure names, values: tuple of location indices of its island, the name of the pirate holding them, or 'b' for base.
+    marines_position = dict(), keys: marine names, values: tuple of location index in track and direction for each (1:going forward in track, -1:going backward in track).
+    num_treasures_held_per_pirate = dict(), keys: pirate names, values: number of treasures each pirate holds.
+    """
     def __init__(self, pirates, treasures, marine_names):
         self.pirate_locations = {p: loc for p, loc in pirates.items()} # dict of pirates and their locations in the map
         self.treasures_locations = {t: loc for t, loc in treasures.items()} # dict of a treasure name with its location on the map
@@ -53,7 +54,7 @@ class OnePieceProblem(search.Problem):
         # and the values are dictionaries that represent the possibilities in this location.
         # The possibilities are: 'b'=base, 'u'=up, 'd'=down, 'l'=left, 'r'=right, 't'=treasure collecting.
         # These are the keys of the inner dictionaries, and the values in the first five keys are booleans that represent whether the corresponding action is possible in this location.
-        # The 6th key, represented by 't', contains a list of all treasure names that can be collected in this location.
+        # The 6th key, represented by 't', contains a tuple of all treasure names that can be collected in this location.
 
         self.len_rows = len(initial_map)
         self.len_cols = len(initial_map[0])
@@ -76,7 +77,7 @@ class OnePieceProblem(search.Problem):
                     # Check if the location is valid and not an island, and if so, add the direction up\down\left\right to the location dictionary with the value True, so that we know that we can sail in this direction.
                     self.location_dict[(i, j)][direction] = is_valid_location(index)
                 
-                self.location_dict[(i, j)]['t'] = list()  # A list of all treasure names that can be collected in this location.
+                self.location_dict[(i, j)]['t'] = tuple()  # A tuple of all treasure names that can be collected in this location.
                 
         self.islands_with_treasures = initial['treasures']  # A dictionary that represents the treasures and their locations when on their island.
 
@@ -86,7 +87,7 @@ class OnePieceProblem(search.Problem):
             for b in [-1, 1]:
                 for new_loc in [(i + b, j), (i, j + b)]:  # The locations that are adjacent to the treasure location.
                     if is_valid_location(new_loc):
-                        self.location_dict[new_loc]['t'].append(treasure)  # Add the treasure to the list of treasures that can be collected in this location.
+                        self.location_dict[new_loc]['t'] += (treasure,)  # Add the treasure to the tuple of treasures that can be collected in this location.
         
         self.marines_tracks = initial['marine_ships']  # A dictionary that represents the tracks of the marine ships.
 
@@ -101,7 +102,7 @@ class OnePieceProblem(search.Problem):
         """Returns all the actions that can be executed in the given
         state. The result should be a tuple (or other iterable) of actions
         as defined in the problem description file"""
-        all_possible_actions = list()
+        all_possible_actions = tuple()
         pirate_locations = state.pirate_locations
         
         for pirate_name in pirate_locations.keys():
@@ -111,18 +112,18 @@ class OnePieceProblem(search.Problem):
             
             # Reminder to the keys and their meanings:
             # b=base, u=up, d=down, l=left, r=right, t=treasure collecting.
-            if action_options['b']: all_possible_actions.append(("deposit_treasures", pirate_name))
+            if action_options['b']: all_possible_actions += (("deposit_treasures", pirate_name),)
 
-            if action_options['u']: all_possible_actions.append(('sail', pirate_name, (row_location - 1, col_location)))
-            if action_options['d']: all_possible_actions.append(('sail', pirate_name, (row_location + 1, col_location)))
-            if action_options['l']: all_possible_actions.append(('sail', pirate_name, (row_location, col_location - 1)))
-            if action_options['r']: all_possible_actions.append(('sail', pirate_name, (row_location, col_location + 1)))
+            if action_options['u']: all_possible_actions += (('sail', pirate_name, (row_location - 1, col_location)),)
+            if action_options['d']: all_possible_actions += (('sail', pirate_name, (row_location + 1, col_location)),)
+            if action_options['l']: all_possible_actions += (('sail', pirate_name, (row_location, col_location - 1)),)
+            if action_options['r']: all_possible_actions += (('sail', pirate_name, (row_location, col_location + 1)),)
             
             if len(action_options['t']) and (state.num_treasures_held_per_pirate[pirate_name] < 2):
                 for t in action_options['t']:
-                    all_possible_actions.append(('collect_treasure', pirate_name, t))
+                    all_possible_actions += (('collect_treasure', pirate_name, t),)
 
-            all_possible_actions.append(('wait', pirate_name))
+            all_possible_actions += (('wait', pirate_name),)
 
         return all_possible_actions
 
