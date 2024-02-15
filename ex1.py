@@ -48,7 +48,7 @@ class OnePieceProblem(search.Problem):
         """Don't forget to implement the goal test
         You should change the initial to your own representation.
         search.Problem.__init__(self, initial) creates the root node"""
-        initial_map = initial['map']
+        self.initial_map = initial['map']
         self.location_dict = dict()
         # A dictionary that represents the map. The keys are the indices of the map, 
         # and the values are dictionaries that represent the possibilities in this location.
@@ -56,18 +56,18 @@ class OnePieceProblem(search.Problem):
         # These are the keys of the inner dictionaries, and the values in the first five keys are booleans that represent whether the corresponding action is possible in this location.
         # The 6th key, represented by 't', contains a tuple of all treasure names that can be collected in this location.
 
-        self.len_rows = len(initial_map)
-        self.len_cols = len(initial_map[0])
+        self.len_rows = len(self.initial_map)
+        self.len_cols = len(self.initial_map[0])
 
         def is_valid_location(location):
             x, y = location
-            return (0 <= x < self.len_rows) and (0 <= y < self.len_cols) and (initial_map[x][y] != 'I')
+            return (0 <= x < self.len_rows) and (0 <= y < self.len_cols) and (self.initial_map[x][y] != 'I')
 
         for i in range(self.len_rows):
             for j in range(self.len_cols):
                 self.location_dict[(i, j)] = dict()  # A dictionary that represents the possibilities in this location, as described above.
 
-                if initial_map[i][j] == 'B':
+                if self.initial_map[i][j] == 'B':
                     self.base = (i, j)  # The location of the base.
                     self.location_dict[(i, j)]['b'] = True  # base; can deposit treasure here
                 else:
@@ -239,8 +239,26 @@ class OnePieceProblem(search.Problem):
         self.memo_distances[(end, start)] = distance  # Distances are symmetric
         return distance
 
+    def is_island(self, location):
+        x, y = location
+        return (0 <= x < self.len_rows) and (0 <= y < self.len_cols) and (self.initial_map[x][y] != 'I')
 # 0 treasures means need to collect more treasures - small weight
     def h_3(self, node):
+        weights = [0.8, 0.4, 0.1]  # weighted num of treasures each pirate holds
+        # weights = [0.9, 0.4, 0.225]
+        score = 0
+        location_next_step = 0
+
+        for location in self.islands_with_treasures.values():
+            accessible_treasure = False
+            for direction, index in zip(['u', 'd', 'l', 'r'], [(-1, 0), (1, 0), (0, -1), (0, 1)]):
+                x = location[0] + index[0]  # The x coordinate of the adjacent cell.
+                y = location[1] + index[1]  # The y coordinate of the adjacent cell.
+                if self.is_island((x, y)):
+                    accessible_treasure = True
+            if not accessible_treasure:
+                score += float('inf')
+                return score
 
         marines_next_locations = dict()
         for marine, track in self.marines_tracks.items():
@@ -254,39 +272,80 @@ class OnePieceProblem(search.Problem):
 
         if node in self.memo.keys():
             return self.memo[node]
-
-        weights = [0.8, 0.4, 0.1]  # weighted num of treasures each pirate holds
-        # weights = [0.9, 0.4, 0.225]
-        score = 0
-        min_arg = 0
         # pirate_best_route_to_base = {pirate: (0,0) for pirate in node.state.pirate_locations.keys()}
         for pirate, location in node.state.pirate_locations.items():
-            min_distances_to_base = float('inf')
-            for direction, index in zip(['u', 'd', 'l', 'r'], [(-1, 0), (1, 0), (0, -1), (0, 1)]):
-                x = location[0] + index[0]  # The x coordinate of the adjacent cell.
-                y = location[1] + index[1]  # The y coordinate of the adjacent cell.
-                if (0 <= x < self.len_rows) and (0 <= y < self.len_cols):
+            for marine_next_position in marines_next_locations.values():
+                min_distances_to_base = float('inf')
+                closest_treasure_dist = float('inf')
+                for direction, index in zip(['u', 'd', 'l', 'r'], [(-1, 0), (1, 0), (0, -1), (0, 1)]):
                     if self.location_dict[location][direction]:
-                        temp_dist = self.calculate_distance((x, y), self.base)  # The L1-distance from the adjacent cell to the base (Manhattan Distance).
+                        x = location[0] + index[0]  # The x coordinate of the adjacent cell.
+                        y = location[1] + index[1]  # The y coordinate of the adjacent cell.
+                        if (0 <= x < self.len_rows) and (0 <= y < self.len_cols):
+                            if node.state.num_treasures_held_per_pirate[pirate] < 2:
+                                for treasure in node.state.treasures_locations.values():
+                                    if type(treasure) == tuple:
+                                        temp_closest_treasure_dist = self.calculate_distance((x, y),treasure)  # The L1-distance from the adjacent cell to the base (Manhattan Distance).
+                                        if temp_closest_treasure_dist < closest_treasure_dist:
+                                            closest_treasure_dist = temp_closest_treasure_dist
+                                            location_next_step = (x,y)
+                            else:
+                                temp_dist = self.calculate_distance((x, y),self.base)  # The L1-distance from the adjacent cell to the base (Manhattan Distance).
+                                if temp_dist < min_distances_to_base:
+                                    min_distances_to_base = temp_dist
+                                    # next possible location of the pirate
+                                    location_next_step = (x, y)
+                                score += (min_distances_to_base * weights[node.state.num_treasures_held_per_pirate[pirate]])**1.8 # ()^2
 
-                        # Update the distance from the treasure to the base if the new distance is shorter.
-                        if temp_dist < min_distances_to_base:
-                            min_distances_to_base = temp_dist
-                            # next possible location of the pirate
-                            min_arg = (x,y)
+                        num_treasures = node.state.num_treasures_held_per_pirate[pirate]
+                        if location_next_step == marine_next_position:
+                            for treasure, treasure_location in node.state.treasures_locations.items():
+                                if num_treasures == 0:
+                                    break
+                                if treasure_location == pirate:
+                                    num_treasures -= 1
+                                    treasure_loc_to_take_again = self.islands_with_treasures[treasure]
+                                    # score += self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again) #*(0.5**(2-num_treasures))
+                                    score += weights[2-num_treasures] * (self.calculate_distance(location_next_step, treasure_loc_to_take_again))
+                                    location_next_step = treasure_loc_to_take_again
+
+                # Update the distance from the treasure to the base if the new distance is shorter.
+
+
             # pirate_best_route_to_base[pirate] = (min_arg, min_distances_to_base)
 
-            next_loc_pirate = min_arg
-            for marine_next_position in marines_next_locations.values():
-                for num_treasures in [2,1,0]:
-                    if (node.state.num_treasures_held_per_pirate[pirate] == num_treasures) and (next_loc_pirate == marine_next_position):
-                        for treasure, treasure_location in node.state.treasures_locations.items():
-                            if treasure_location == pirate:
-                                treasure_loc_to_take_again = self.islands_with_treasures[treasure]
-                                # score += self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again) #*(0.5**(2-num_treasures))
-                                score += weights[2-num_treasures]*(self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again))
-                                next_loc_pirate = treasure_loc_to_take_again
-            score += (min_distances_to_base * weights[node.state.num_treasures_held_per_pirate[pirate]])**1.8 # ()^2
+
+                # next_loc_pirate = min_arg
+                # if (node.state.num_treasures_held_per_pirate[pirate] == 2) and (next_loc_pirate == marine_next_position):
+                #         for treasure, treasure_location in node.state.treasures_locations.items():
+                #             if treasure_location == pirate:
+                #                 treasure_loc_to_take_again = self.islands_with_treasures[treasure]
+                #                 # score += self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again) #*(0.5**(2-num_treasures))
+                #                 score += weights[0] * (
+                #                     self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again))
+                #                 next_loc_pirate = treasure_loc_to_take_again
+                # next_loc_pirate = closest_treasure_next_step_pirate
+                # if (node.state.num_treasures_held_per_pirate[pirate] == 1) and (
+                #         next_loc_pirate == marine_next_position):
+                #     for treasure, treasure_location in node.state.treasures_locations.items():
+                #         if treasure_location == pirate:
+                #             treasure_loc_to_take_again = self.islands_with_treasures[treasure]
+                #             # score += self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again) #*(0.5**(2-num_treasures))
+                #             score += weights[2 - num_treasures] * (
+                #                 self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again))
+                #             next_loc_pirate = treasure_loc_to_take_again
+                #
+
+            # for marine_next_position in marines_next_locations.values():
+            #     for num_treasures in [2,1,0]:
+            #         if (node.state.num_treasures_held_per_pirate[pirate] == num_treasures) and (next_loc_pirate == marine_next_position):
+            #             for treasure, treasure_location in node.state.treasures_locations.items():
+            #                 if treasure_location == pirate:
+            #                     treasure_loc_to_take_again = self.islands_with_treasures[treasure]
+            #                     # score += self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again) #*(0.5**(2-num_treasures))
+            #                     score += weights[2-num_treasures]*(self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again))
+            #                     next_loc_pirate = treasure_loc_to_take_again
+            # score += (min_distances_to_base * weights[node.state.num_treasures_held_per_pirate[pirate]])**1.8 # ()^2
 
         for treasure in node.state.treasures_locations.values():
             closest_pirate_distance = float('inf')
