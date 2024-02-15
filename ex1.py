@@ -179,7 +179,6 @@ class OnePieceProblem(search.Problem):
             if t != 'b':  # The goal state is when all the treasures are in the base.
                 return False
         return True
-    
 
     def h(self, node):
         """ This is the heuristic. It gets a node (not a state,
@@ -241,12 +240,24 @@ class OnePieceProblem(search.Problem):
 
 # 0 treasures means need to collect more treasures - small weight
     def h_3(self, node):
+
+        marines_next_locations = dict()
+        for marine, track in self.marines_tracks.items():
+            if (node.state.marines_position[marine][0] < len(track) - 1) and (
+                    (node.state.marines_position[marine][1] == 1) or (node.state.marines_position[marine][0] == 0)):
+                marines_next_locations[marine] = track[node.state.marines_position[marine][0] + 1]
+            elif (node.state.marines_position[marine][0] > 0) and (
+                    (node.state.marines_position[marine][1] == -1) or (node.state.marines_position[marine][0] == len(track) - 1)):
+                marines_next_locations[marine] = track[node.state.marines_position[marine][0] - 1]
+
+
         if node in self.memo.keys():
             return self.memo[node]
-        
+
         weights = [0.8, 0.4, 0.1]  # weighted num of treasures each pirate holds
-        # min_arg = 0
+        # weights = [0.9, 0.4, 0.225]
         score = 0
+        min_arg = 0
         # pirate_best_route_to_base = {pirate: (0,0) for pirate in node.state.pirate_locations.keys()}
         for pirate, location in node.state.pirate_locations.items():
             min_distances_to_base = float('inf')
@@ -260,9 +271,21 @@ class OnePieceProblem(search.Problem):
                         # Update the distance from the treasure to the base if the new distance is shorter.
                         if temp_dist < min_distances_to_base:
                             min_distances_to_base = temp_dist
-                            # min_arg = (x,y)
+                            # next possible location of the pirate
+                            min_arg = (x,y)
             # pirate_best_route_to_base[pirate] = (min_arg, min_distances_to_base)
-            score += min_distances_to_base * weights[node.state.num_treasures_held_per_pirate[pirate]]
+
+            next_loc_pirate = min_arg
+            for marine_next_position in marines_next_locations.values():
+                for num_treasures in [2,1,0]:
+                    if (node.state.num_treasures_held_per_pirate[pirate] == num_treasures) and (next_loc_pirate == marine_next_position):
+                        for treasure, treasure_location in node.state.treasures_locations.items():
+                            if treasure_location == pirate:
+                                treasure_loc_to_take_again = self.islands_with_treasures[treasure]
+                                # score += self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again) #*(0.5**(2-num_treasures))
+                                score += weights[2-num_treasures]*(self.calculate_distance(next_loc_pirate, treasure_loc_to_take_again))
+                                next_loc_pirate = treasure_loc_to_take_again
+            score += (min_distances_to_base * weights[node.state.num_treasures_held_per_pirate[pirate]])**1.8 # ()^2
 
         for treasure in node.state.treasures_locations.values():
             closest_pirate_distance = float('inf')
@@ -276,46 +299,119 @@ class OnePieceProblem(search.Problem):
                                 temp_dist = self.calculate_distance((x, y), location)
                                 if temp_dist < closest_pirate_distance:
                                     closest_pirate_distance = temp_dist
-                    score += closest_pirate_distance * weights[2 - node.state.num_treasures_held_per_pirate[pirate]]
-        
+                    score += closest_pirate_distance * (weights[2 - node.state.num_treasures_held_per_pirate[pirate]])**2
         self.memo[node] = score
         return score
 
+    import math
 
-
-
+#     def calculate_manhattan_distance(self, point1, point2):
+#         return abs(int(point1[0]) - int(point2[0])) + abs(int(point1[1]) - int(point2[1]))
+#
+#     def calculate_nearest_treasure_distance(self, state, pirate):
+#         # Assuming state has information about islands and treasures
+#         pirate_position = state.pirate_locations[pirate]
+#         nearest_treasure_distance = float('inf')
+#
+#         for treasure_position in state.treasures_locations.values():
+#             if type(treasure_position) == tuple:
+#                 distance = self.calculate_manhattan_distance(pirate_position, treasure_position)
+#                 nearest_treasure_distance = min(nearest_treasure_distance, distance)
+#
+#         return nearest_treasure_distance
+#
+#     def calculate_distance_to_base(self, state, pirate):
+#         pirate_position = state.pirate_locations[pirate]
+#         base_position = self.base
+#         return self.calculate_manhattan_distance(pirate_position, base_position)
+#
+#     def calculate_marine_ship_penalty(self, state, pirate):
+#         pirate_position = state.pirate_locations[pirate]
+#         marines_locations = {marine: track[state.marines_position[marine][0]] for marine, track in self.marines_tracks.items()}
+#
+#         # Assuming state has information about marine ships
+#         for marine_position in marines_locations.values():
+#             if self.calculate_manhattan_distance(pirate_position, marine_position) <= 1:
+#                 # Penalize if pirate is too close to a marine ship
+#                 return float('inf')  # or another large penalty value
+#         return 0
+#
+#     def calculate_remaining_treasures_value(self, state):
+#         remaining_treasures_value = 0
+#
+#         # Assuming state has information about islands and treasures
+#         for treasure_position in state.treasures_locations.values():
+#             if type(treasure_position) == tuple:
+#                 # If the treasure has not been collected, add its value to the total
+#                 remaining_treasures_value += treasure_position[0]+treasure_position[1]
+#
+#         return remaining_treasures_value
+#
+#     def h_4(self, node):
+#         total_heuristic_value = 0
+#
+#         for pirate in node.state.pirate_locations.keys():
+#                 # Factor 1: Distance to the nearest treasure
+#             nearest_treasure_distance = self.calculate_nearest_treasure_distance(node.state, pirate)
+#             total_heuristic_value += nearest_treasure_distance
+#
+#             # Factor 2: Proximity to base
+#             base_distance = self.calculate_distance_to_base(node.state, pirate)
+#             total_heuristic_value += base_distance
+#
+#             # Factor 3: Blocking marine ships
+#             marine_ship_penalty = self.calculate_marine_ship_penalty(node.state, pirate)
+#             total_heuristic_value += marine_ship_penalty
+#
+#             # Factor 4: Treasures on board
+#             treasures_on_board = node.state.num_treasures_held_per_pirate[pirate]
+#             total_heuristic_value -= treasures_on_board
+#
+#         # Factor 5: Remaining treasures on islands
+#         remaining_treasures_value = self.calculate_remaining_treasures_value(node.state)
+#         total_heuristic_value += remaining_treasures_value
+#
+#         # Factor 6: Avoiding loops (you may need to implement a loop detection mechanism)
+#
+#         # Factor 7: Efficient path planning
+#
+#         # Factor 8: Avoiding conflicts
+#
+#         return total_heuristic_value
+#
+#
 def create_onepiece_problem(game):
-    return OnePieceProblem(game)
+     return OnePieceProblem(game)
+#
+#
+#     """Feel free to add your own functions
+#     (-2, -2, None) means there was a timeout"""
 
-
-    """Feel free to add your own functions
-    (-2, -2, None) means there was a timeout"""
-
-    def calculate_distances_from_treasure(self, num_pirates):
-        ''' We use BFS to calculate the distance from the base to each treasure. We normalize the distances by the number of pirates.
-            This function is currently redundent, but we had no heart deleting it :( '''
-        queue = [(self.base, 0)]  # A list of tuples, each tuple represents the index of a node and its distance from the base node. queue[1] is the distance that we passed so far.
-        opened = []
-        normalized_distances = {}  # Dictionary representing the treasure number and its distance from the base.
-        while queue:
-            current = queue.pop(0)
-            opened.append(current[0])
-            for t_num in range(len(self.num_of_treasures)):
-                if ('t', t_num+1) in self.location_matrix[current[0][0]][current[0][1]]:  # Changed the location matrix since then
-                    normalized_distances[t_num+1] = current[1]/num_pirates
-            if len(normalized_distances.keys()) == len(self.num_of_treasures):
-                return normalized_distances
-            for i in [-1,1]:
-                potential_child_location = (current[0][0] + i, current[0][1])
-                if self.is_valid_location(potential_child_location) and (potential_child_location not in opened):
-                    queue.append((potential_child_location, current[1] + 1))
-                potential_child_location = (current[0][0], current[0][1] + i)
-                if self.is_valid_location(potential_child_location) and (potential_child_location not in opened):
-                    queue.append((potential_child_location, current[1] + 1))
-        
-        for t_num in range(len(self.num_of_treasures)):
-            if t_num+1 not in normalized_distances.keys():
-                normalized_distances[t_num+1] = float('inf')
-        return normalized_distances
-
-
+    # def calculate_distances_from_treasure(self, num_pirates):
+    #     ''' We use BFS to calculate the distance from the base to each treasure. We normalize the distances by the number of pirates.
+    #         This function is currently redundent, but we had no heart deleting it :( '''
+    #     queue = [(self.base, 0)]  # A list of tuples, each tuple represents the index of a node and its distance from the base node. queue[1] is the distance that we passed so far.
+    #     opened = []
+    #     normalized_distances = {}  # Dictionary representing the treasure number and its distance from the base.
+    #     while queue:
+    #         current = queue.pop(0)
+    #         opened.append(current[0])
+    #         for t_num in range(len(self.num_of_treasures)):
+    #             if ('t', t_num+1) in self.location_matrix[current[0][0]][current[0][1]]:  # Changed the location matrix since then
+    #                 normalized_distances[t_num+1] = current[1]/num_pirates
+    #         if len(normalized_distances.keys()) == len(self.num_of_treasures):
+    #             return normalized_distances
+    #         for i in [-1,1]:
+    #             potential_child_location = (current[0][0] + i, current[0][1])
+    #             if self.is_valid_location(potential_child_location) and (potential_child_location not in opened):
+    #                 queue.append((potential_child_location, current[1] + 1))
+    #             potential_child_location = (current[0][0], current[0][1] + i)
+    #             if self.is_valid_location(potential_child_location) and (potential_child_location not in opened):
+    #                 queue.append((potential_child_location, current[1] + 1))
+    #
+    #     for t_num in range(len(self.num_of_treasures)):
+    #         if t_num+1 not in normalized_distances.keys():
+    #             normalized_distances[t_num+1] = float('inf')
+    #     return normalized_distances
+    #
+    #
