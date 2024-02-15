@@ -76,7 +76,7 @@ class OnePieceProblem(search_322620873_314779166.Problem):
                     self.location_dict[(i, j)]['b'] = True  # base; can deposit treasure here
                 else:
                     self.location_dict[(i, j)]['b'] = False  # isn't the base
-                    
+
         for i in range(self.len_rows):
             for j in range(self.len_cols):
                 min_distance_to_base = float('inf')
@@ -90,8 +90,8 @@ class OnePieceProblem(search_322620873_314779166.Problem):
                             distance = abs(index[0] - self.base[0]) + abs(index[1] - self.base[1])  # The L1-distance from the adjacent cell to the base (Manhattan Distance).
                             self.memo_distances[(index, self.base)] = distance
                             self.memo_distances[(self.base, index)] = distance  # Distances are symmetric
-                            if distance < min_distance:
-                                min_distance = distance
+                            if distance < min_distance_to_base:
+                                min_distance_to_base = distance
                     else:
                         self.location_dict[(i, j)][direction] = False
 
@@ -103,7 +103,6 @@ class OnePieceProblem(search_322620873_314779166.Problem):
         for treasure, location in initial['treasures'].items():  # For each treasure, update the locations that from them we can collect the treasure.
             i = location[0]
             j = location[1]
-            min_distance_to_base = float('inf')
 
             for b in [-1, 1]:
                 for new_loc in [(i + b, j), (i, j + b)]:  # The locations that are adjacent to the treasure location.
