@@ -16,8 +16,7 @@ class State:
         self.treasures_locations = {t: loc for t, loc in treasures.items()} # dict of a treasure name with its location on the map
 
         # dict of marines and a tuple of location index in track and direction for each (1:going forward in track, -1:going backward in track)
-        if marine_names:
-            self.marines_position = {m: (0, 1) for m in marine_names}
+        self.marines_position = {m: (0, 1) for m in marine_names}
 
         # dict of pirates and the number of treasure each one holds
         self.num_treasures_held_per_pirate = {p: 0 for p in pirates}
@@ -25,7 +24,7 @@ class State:
 
     def clone_state(self):
         """ Returns a new state that is a copy of the current state. """
-        new_state = State(self.pirate_locations, self.treasures_locations, 0)
+        new_state = State(self.pirate_locations, self.treasures_locations, self.marines_position.keys())
         new_state.marines_position = {m: position for m, position in self.marines_position.items()}  # position is a tuple of location index in track and direction.
         new_state.num_treasures_held_per_pirate = {p: num_t for p, num_t in self.num_treasures_held_per_pirate.items()}
         return new_state
@@ -220,7 +219,7 @@ class OnePieceProblem(search.Problem):
 
 # 0 treasures means need to collect more treasures - small weight
     def h_3(self, node):
-        weights = [10, 5, 2]  # weighted num of treasures each pirate holds
+        weights = [0.8, 0.4, 0.1]  # weighted num of treasures each pirate holds
         # min_arg = 0
         score = 0
         # pirate_best_route_to_base = {pirate: (0,0) for pirate in node.state.pirate_locations.keys()}

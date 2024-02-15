@@ -151,6 +151,7 @@ def astar_search(problem, h=None):
     # Memoize this function for better performance
     f = memoize(lambda n: n.path_cost + h(n), 'f')
 
+    print('\n')
     queue = PriorityQueue(min, f)
     queue.append(Node(problem.initial_state))
     closed = dict()  # A dictionary of states and booliean values, to check if a state is in the closed list or not.
