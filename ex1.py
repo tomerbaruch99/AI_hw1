@@ -32,6 +32,12 @@ class State:
 
     def __lt__(self, other):
         return id(self) < id(other)
+    
+    def __eq__(self, other):
+        return (self.pirate_locations == other.pirate_locations) and (self.treasures_locations == other.treasures_locations) and (self.num_treasures_held_per_pirate == other.num_treasures_held_per_pirate) and (self.marines_position == other.marines_position)
+
+    def __hash__(self):
+        return hash((frozenset(self.pirate_locations.items()), frozenset(self.treasures_locations.items()), frozenset(self.num_treasures_held_per_pirate.items()), frozenset(self.marines_position.items())))
 
 
 class OnePieceProblem(search.Problem):
@@ -84,6 +90,9 @@ class OnePieceProblem(search.Problem):
         
         self.marines_tracks = initial['marine_ships']  # A dictionary that represents the tracks of the marine ships.
 
+        self.memo = dict()  # A dictionary that represents the memoization of the heuristic function.
+        self.memo_distances = dict()  # A dictionary that represents the distances between each pair of locations, so that we don't need to calculate the same distance more than once.
+        
         initial_state = State(initial['pirate_ships'], initial['treasures'], initial['marine_ships'].keys())  # Create the initial state.
         search.Problem.__init__(self, initial_state)
 
@@ -217,8 +226,24 @@ class OnePieceProblem(search.Problem):
         return sum(min_distances_to_base) / num_pirates
 
 
+    def calculate_distance(self, start, end):
+        # Check if the distance has already been calculated and memoized
+        if (start, end) in self.memo_distances:
+            return self.memo_distances[(start, end)]
+        
+        # Calculate the distance
+        distance = abs(start[0] - end[0]) + abs(start[1] - end[1])
+
+        # Memoize the distance
+        self.memo_distances[(start, end)] = distance
+        self.memo_distances[(end, start)] = distance  # Distances are symmetric
+        return distance
+
 # 0 treasures means need to collect more treasures - small weight
     def h_3(self, node):
+        if node in self.memo.keys():
+            return self.memo[node]
+        
         weights = [0.8, 0.4, 0.1]  # weighted num of treasures each pirate holds
         # min_arg = 0
         score = 0
@@ -230,7 +255,7 @@ class OnePieceProblem(search.Problem):
                 y = location[1] + index[1]  # The y coordinate of the adjacent cell.
                 if (0 <= x < self.len_rows) and (0 <= y < self.len_cols):
                     if self.location_dict[location][direction]:
-                        temp_dist = abs(self.base[0] - x) + abs(self.base[1] - y)  # The L1-distance from the adjacent cell to the base (Manhattan Distance).
+                        temp_dist = self.calculate_distance((x, y), self.base)  # The L1-distance from the adjacent cell to the base (Manhattan Distance).
 
                         # Update the distance from the treasure to the base if the new distance is shorter.
                         if temp_dist < min_distances_to_base:
@@ -248,10 +273,12 @@ class OnePieceProblem(search.Problem):
                         y = treasure[1] + index[1]
                         if (0 <= x < self.len_rows) and (0 <= y < self.len_cols):
                             if treasure in self.location_dict[(x, y)]['t']:
-                                temp_dist = abs(x - location[0]) + abs(y - location[1])
+                                temp_dist = self.calculate_distance((x, y), location)
                                 if temp_dist < closest_pirate_distance:
                                     closest_pirate_distance = temp_dist
                     score += closest_pirate_distance * weights[2 - node.state.num_treasures_held_per_pirate[pirate]]
+        
+        self.memo[node] = score
         return score
 
 
