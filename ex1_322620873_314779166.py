@@ -76,12 +76,14 @@ class OnePieceProblem(search_322620873_314779166.Problem):
                     self.location_dict[(i, j)]['b'] = True  # base; can deposit treasure here
                 else:
                     self.location_dict[(i, j)]['b'] = False  # isn't the base
-
+                    
+        for i in range(self.len_rows):
+            for j in range(self.len_cols):
                 min_distance_to_base = float('inf')
                 for direction, index in zip(['u', 'd', 'l', 'r'], [(i-1, j), (i+1, j), (i, j-1), (i, j+1)]):
                     # Check if the location is valid and not an island, and if so, add the direction up\down\left\right to the location dictionary with the value True, so that we know that we can sail in this direction.
                     if is_valid_location(index):
-                        self.location_dict[(i, j)][direction] = True
+                        self.location_dict[(i, j)][direction] = is_valid_location(index)
 
                         # Check if the distance has already been calculated and memoized
                         if (index, self.base) not in self.memo_distances:
@@ -92,7 +94,7 @@ class OnePieceProblem(search_322620873_314779166.Problem):
                                 min_distance = distance
                     else:
                         self.location_dict[(i, j)][direction] = False
-                        
+
                 if ((i, j), self.base) not in self.memo_distances:
                     self.min_distance_of_adjacent_cells[((i, j), self.base)] = min_distance_to_base  # Setting the minimum distance from the adjacent non-island cells to the base.
 
