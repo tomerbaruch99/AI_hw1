@@ -20,7 +20,7 @@ class State:
         self.marines_position = {m: (0, 1) for m in marine_names}
 
         # dict of pirates and the number of treasure each one holds
-        self.num_treasures_held_per_pirate = {p: 0 for p in pirates}
+        self.num_treasures_held_per_pirate = {p: 0 for p in pirates.keys()}
     
 
     def clone_state(self):
@@ -111,11 +111,8 @@ class OnePieceProblem(search_322620873_314779166.Problem):
                         
         self.marines_tracks = initial['marine_ships']  # A dictionary that represents the tracks of the marine ships.
         
-        initial_state = tuple()
-        for pirate in initial['pirate_ships'].keys():
-            initial_state += (State(pirate, initial['treasures'], initial['marine_ships'].keys()),)
         initial_state = State(initial['pirate_ships'], initial['treasures'], initial['marine_ships'].keys())  # Create the initial state.
-        search.Problem.__init__(self, initial_state)
+        search_322620873_314779166.Problem.__init__(self, initial_state)
     
 
     def actions(self, state):
@@ -274,14 +271,15 @@ class OnePieceProblem(search_322620873_314779166.Problem):
             x = reference_point[0] + index[0]
             y = reference_point[1] + index[1]
 
-            if treasure_condition:
-                condition_flag = True if self.location_dict[(x, y)]['t'] else False
-            else:
-                condition_flag = True if self.location_dict[reference_point][direction] else False
-            if condition_flag and (0 <= x < self.len_rows) and (0 <= y < self.len_cols):
-                temp_dist = self.calculate_distance((x, y), goal_point)
-                if temp_dist < min_distance:
-                    min_distance = temp_dist
+            if (0 <= x < self.len_rows) and (0 <= y < self.len_cols):
+                if treasure_condition:
+                    condition_flag = True if self.location_dict[(x, y)]['t'] else False
+                else:
+                    condition_flag = True if self.location_dict[reference_point][direction] else False
+                if condition_flag:
+                    temp_dist = self.calculate_distance((x, y), goal_point)
+                    if temp_dist < min_distance:
+                        min_distance = temp_dist
         return min_distance
 
 
