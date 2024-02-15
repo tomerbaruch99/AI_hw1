@@ -1,5 +1,5 @@
-import ex1
-import search
+import ex1_322620873_314779166
+import search_322620873_314779166
 import time
 
 
@@ -42,7 +42,7 @@ def check_problem(p, search_method, timeout):
     s = timeout_exec(search_method, args=[p], timeout_duration=timeout)
     t2 = time.time()
 
-    if isinstance(s, search.Node):
+    if isinstance(s, search_322620873_314779166.Node):
         solve = s
         solution = list(map(lambda n: n.action, solve.path()))[1:]
         return (len(solution), t2 - t1, solution)
@@ -56,13 +56,13 @@ def solve_problems(problems):
     solved = 0
     for problem in problems:
         try:
-            p = ex1.create_onepiece_problem(problem)
+            p = ex1_322620873_314779166.create_onepiece_problem(problem)
         except Exception as e:
             print("Error creating problem: ", e)
             return None
         timeout = 60
         result = check_problem(
-            p, (lambda p: search.astar_search(p, p.h)), timeout)
+            p, (lambda p: search_322620873_314779166.astar_search(p, p.h)), timeout)
         print("A* ", result)
         if result[2] != None:
             if result[0] != -3:
@@ -70,7 +70,7 @@ def solve_problems(problems):
 
 
 def main():
-    print(ex1.ids)
+    print(ex1_322620873_314779166.ids)
     """Here goes the input you want to check"""
     problems = [
         {
